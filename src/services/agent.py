@@ -4,7 +4,10 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_agent
 
-from src.services.tools import retrieve_hr_docs
+# from src.services.tools import retrieve_docs
+from src.tools.fts_search_tool import fts_search
+from src.tools.hybrid_search_tool import _hybrid_search
+from src.tools.vector_search_tool import query_documents
 
 load_dotenv()
 
@@ -17,12 +20,12 @@ llm = ChatGoogleGenerativeAI(
 system_prompt = """
 You are an intelligent credit risk assessment and loan underwriting agent assistant.
 
-You have access to a tool:
-- retrieve_hr_docs
+You have access to the tools:
+- fts_search_tool, hybrid_search_tool, vector_search_tool
 
 STRICT RULES:
 
-1. ALWAYS call the tool before answering
+1. ALWAYS call the tools before answering
 2. Use ONLY tool output
 3. If tool returns "No relevant data found", return that
 
@@ -50,7 +53,7 @@ Output ONLY JSON.
 
 agent = create_agent(
     model=llm,
-    tools=[retrieve_hr_docs],
+    tools=[_hybrid_search, fts_search, query_documents],
     system_prompt=system_prompt
 )
 

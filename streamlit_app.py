@@ -1,92 +1,60 @@
 import streamlit as st
 import requests
+import json
 
-
+# -----------------------------
+# Configuration
+# -----------------------------
 API_QUERY = "http://localhost:8000/api/v1/query"
-API_UPLOAD = "http://localhost:8000/api/v1/admin/upload"
-
-ADMIN_PASSWORD = "admin123"
-
+API_ADMIN_UPLOAD = "http://localhost:8000/api/v1/admin/upload"
 
 st.set_page_config(page_title="RAG Assistant", layout="wide")
 
+# -----------------------------
+# Styling
+# -----------------------------
 st.markdown("""
 <style>
 .stApp {
     background-color: #f5f7fb;
-}
-
+}git status
 .block-container {
     max-width: 1100px;
     padding-top: 2rem;
-    padding-bottom: 2rem;
 }
-
-section[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
-}
-
 [data-testid="stChatMessage"] {
     padding: 14px;
     border-radius: 10px;
     margin-bottom: 10px;
     border: 1px solid #e5e7eb;
 }
-
-.stButton>button {
-    border-radius: 8px;
-    border: 1px solid #d1d5db;
-    background-color: #ffffff;
-    padding: 6px 14px;
-}
-
-.stButton>button:hover {
-    border-color: #6366f1;
-    color: #6366f1;
-}
-
-details {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 8px;
-}
-
-[data-testid="stFileUploader"] {
-    border: 1px dashed #cbd5e1;
-    padding: 12px;
-    border-radius: 10px;
-    background-color: #ffffff;
-}
-
-.small-text {
-    color: #6b7280;
-    font-size: 13px;
-}
 </style>
 """, unsafe_allow_html=True)
 
-
+# -----------------------------
+# Session State
+# -----------------------------
 if "role" not in st.session_state:
     st.session_state.role = None
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
+# -----------------------------
+# Sidebar
+# -----------------------------
 with st.sidebar:
-    st.markdown("### RAG Assistant")
-    st.markdown("---")
-
+    st.title("Navigation")
     if st.session_state.role:
-        st.markdown(f"Role: **{st.session_state.role.capitalize()}**")
-
+        st.markdown(f"**Role:** {st.session_state.role.capitalize()}")
         if st.button("Logout"):
             st.session_state.role = None
             st.session_state.messages = []
             st.rerun()
 
-
+# -----------------------------
+# Login Page
+# -----------------------------
 if st.session_state.role is None:
     st.title("Login")
 
@@ -94,9 +62,8 @@ if st.session_state.role is None:
 
     if role == "Admin":
         password = st.text_input("Password", type="password")
-
         if st.button("Login"):
-            if password == ADMIN_PASSWORD:
+            if password == "admin123":
                 st.session_state.role = "admin"
                 st.rerun()
             else:
@@ -108,154 +75,129 @@ if st.session_state.role is None:
 
     st.stop()
 
-
-st.markdown("## Credit-Risk Assistant")
-st.divider()
-
-def format_insight(content):
-    points = []
-
-    if isinstance(content, list):
-        content = " ".join([str(c) for c in content])
-
-    if not isinstance(content, str):
-        return []
-
-    lines = content.split("Q:")
-
-    for line in lines:
-        if "A:" in line:
-            try:
-                _, a_part = line.split("A:")
-                answer = a_part.strip().replace("\n", " ")
-                answer = answer[:120]
-                points.append(f"- {answer}")
-            except:
-                continue
-
-    return points[:3]
-
+# =====================================================
+# ADMIN PAGE
+# =====================================================
 if st.session_state.role == "admin":
+    st.title(" Document Upload (Admin)")
 
-    st.markdown("### Document Management")
+    uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
 
-    uploaded_file = st.file_uploader("Upload document", type=["pdf", "txt"])
+    if uploaded_file and st.button("Upload"):
+        try:
+            files = {
+                "file": (uploaded_file.name, uploaded_file, "application/pdf")
+            }
+            response = requests.post(API_ADMIN_UPLOAD, files=files)
 
-    if uploaded_file:
-        if st.button("Upload File"):
-            try:
-                files = {
-                    "file": (
-                        uploaded_file.name,
-                        uploaded_file,
-                        uploaded_file.type
-                    )
-                }
+            if response.status_code == 200:
+                st.success(f"Uploaded: {uploaded_file.name}")
+            else:
+                st.error(response.text)
+        except Exception as e:
+            st.error(str(e))
 
-                res = requests.post(API_UPLOAD, files=files)
+# =====================================================
+# USER PAGE
+# =====================================================
+if st.session_state.role == "user":
+    st.title("Intelligent Credit‑Risk RAG Assistant")
 
-                if res.status_code == 200:
-                    st.success(f"{uploaded_file.name} uploaded successfully")
-                else:
-                    st.error(res.text)
+    # Optional metadata
+    st.subheader("User Profile Details (Optional)")
+    user_data_text = st.text_area(
+        "Enter User Details as JSON",
+        placeholder='{ "customer_id": "BORR001",  "employment_type": "Salaried",   "loan_type": "Personal Loan", ... }'
+    )
 
-            except:
-                st.error("Upload failed")
-
-
-
-
-elif st.session_state.role == "user":
-
+    # -----------------------------
+    # Chat History
+    # -----------------------------
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-            if msg.get("insights"):
-                with st.expander("View details"):
-                    for insight in msg["insights"]:
-                        st.markdown(insight)
+            #  Always show citations for assistant messages
+            if msg["role"] == "assistant":
+                st.markdown("### Source Information")
+                st.markdown(f"**Document Name:** {msg.get('document_name', 'NA')}")
+                st.markdown(f"**Page No.:** {msg.get('page_no', 'NA')}")
+                st.markdown(f"**Section:** {msg.get('section', 'NA')}")
+
+                chunks = msg.get("chunks", [])
+                if not chunks:
+                    st.markdown("No citation text available.")
+                else:
+                    for i, chunk in enumerate(chunks):
+                        st.markdown(f"**Snippet {i+1}:**")
+                        st.markdown(chunk)
                         st.markdown("---")
 
+    # -----------------------------
+    # User Input
+    # -----------------------------
+    if prompt := st.chat_input("Ask your question..."):
 
-    user_input = st.chat_input("Ask a question...")
+        # Parse user metadata safely
+        try:
+            user_data = json.loads(user_data_text) if user_data_text.strip() else {}
+        except json.JSONDecodeError:
+            st.error("Invalid JSON in user metadata")
+            user_data = {}
 
-    if user_input:
-        st.chat_message("user").markdown(user_input)
+        query = prompt + " " + str(user_data)
 
+        # Save user message
         st.session_state.messages.append({
             "role": "user",
-            "content": user_input
+            "content": prompt
         })
 
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # -----------------------------
+        # Query Backend
+        # -----------------------------
         try:
-            res = requests.post(API_QUERY, json={"query": user_input})
-            data = res.json()
-        except:
-            st.error("Backend connection failed")
+            response = requests.post(API_QUERY, json={"query": query})
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            st.error(f"Backend error: {e}")
             st.stop()
 
-        raw_answer = data.get("answer", "")
+        answer = data.get("answer", "No answer found.")
+        document_name = data.get("document_name", "NA")
+        page_no = data.get("page_no", "NA")
+        section = data.get("section", "NA")
+        chunks = data.get("chunks", [])
 
-        if isinstance(raw_answer, list):
-            answer = raw_answer[0].get("text", "")
-        else:
-            answer = raw_answer
-
-        answer = str(answer).strip()
-
-     
-        no_answer_phrases = [
-            "i don't know",
-            "i do not know",
-            "not available",
-            "no information",
-            "cannot find",
-            "not found"
-        ]
-
-        is_no_answer = any(p in answer.lower() for p in no_answer_phrases)
-
-        if is_no_answer:
-            answer = "I Don't Know."
-
-       
-        insights = []
-
-        if not is_no_answer:
-            for i, doc in enumerate(data.get("results", [])[:3]):
-                content = doc.get("content", "")
-                page = doc.get("metadata", {}).get("page", "N/A")
-
-                if not isinstance(content, str):
-                    content = str(content)
-
-                formatted = format_insight(content)
-
-                if formatted:
-                    text = f"Snippet {i+1} (Page {page})\n" + "\n".join(formatted)
-                    insights.append(text)
-
-    
+        # -----------------------------
+        # Assistant Message
+        # -----------------------------
         with st.chat_message("assistant"):
-            placeholder = st.empty()
-            full = ""
+            st.markdown(answer)
 
-            for word in answer.split():
-                full += word + " "
-                placeholder.markdown(full + "▌")
+            st.markdown("### Source Information")
+            st.markdown(f"**Document Name:** {document_name}")
+            st.markdown(f"**Page No.:** {page_no}")
+            st.markdown(f"**Section:** {section}")
 
-            placeholder.markdown(full)
+            if not chunks:
+                st.markdown("No citation text available.")
+            else:
+                for i, chunk in enumerate(chunks):
+                    st.markdown(f"**Snippet {i+1}:**")
+                    st.markdown(chunk)
+                    st.markdown("---")
 
-            if insights:
-                with st.expander("View details"):
-                    for ins in insights:
-                        st.markdown(ins)
-                        st.markdown("---")
-
-        
+        # Save assistant response
         st.session_state.messages.append({
             "role": "assistant",
             "content": answer,
-            "insights": insights
+            "document_name": document_name,
+            "page_no": page_no,
+            "section": section,
+            "chunks": chunks
         })
