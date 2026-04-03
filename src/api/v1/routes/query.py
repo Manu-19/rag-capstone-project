@@ -32,6 +32,12 @@ def query_api(request: QueryRequest):
             "answer": "Error parsing response",
             "retrieved_content": []
         }
+    
+    retrieved_content = parsed.get("chunks", [])
+    if isinstance(retrieved_content, str):  # If it's a string, convert to an empty list
+        retrieved_content = []
+    elif not isinstance(retrieved_content, list):  # If it's not a list, default to empty list
+        retrieved_content = [] 
 
     return QueryResponse(
         query=parsed.get("query", request.query),

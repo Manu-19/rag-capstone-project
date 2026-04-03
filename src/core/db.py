@@ -10,7 +10,8 @@ PG_CONNECTION = os.getenv("PG_CONNECTION_STRING")
 def get_embeddings():
     return GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-2-preview",
-        api_key=os.getenv("GOOGLE_API_KEY")
+        api_key=os.getenv("GOOGLE_API_KEY"),
+        output_dimensionality=1536
     )
 
 def get_vector_store(collection_name: str = "loan_support_desk"):

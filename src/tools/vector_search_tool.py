@@ -2,7 +2,7 @@ from src.core.db import get_vector_store
 from langchain_core.tools import tool
 
 
-def query_documents(query: str, k: int = 5) -> list[dict]:
+def query_documents(query: str, k: int = 3) -> list[dict]:
    """
     Use this tool for semantic similarity search over documents.
     Best for natural language and concept-based loan questions.
