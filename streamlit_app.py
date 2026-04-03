@@ -2,22 +2,17 @@ import streamlit as st
 import requests
 import json
 
-# -----------------------------
-# Configuration
-# -----------------------------
 API_QUERY = "http://localhost:8000/api/v1/query"
 API_ADMIN_UPLOAD = "http://localhost:8000/api/v1/admin/upload"
 
 st.set_page_config(page_title="RAG Assistant", layout="wide")
 
-# -----------------------------
-# Styling
-# -----------------------------
+
 st.markdown("""
 <style>
 .stApp {
     background-color: #f5f7fb;
-}git status
+}
 .block-container {
     max-width: 1100px;
     padding-top: 2rem;
@@ -31,18 +26,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# Session State
-# -----------------------------
+
 if "role" not in st.session_state:
     st.session_state.role = None
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# -----------------------------
-# Sidebar
-# -----------------------------
+
 with st.sidebar:
     st.title("Navigation")
     if st.session_state.role:
@@ -52,9 +43,8 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
 
-# -----------------------------
 # Login Page
-# -----------------------------
+
 if st.session_state.role is None:
     st.title("Login")
 
@@ -75,9 +65,7 @@ if st.session_state.role is None:
 
     st.stop()
 
-# =====================================================
-# ADMIN PAGE
-# =====================================================
+
 if st.session_state.role == "admin":
     st.title(" Document Upload (Admin)")
 
@@ -97,9 +85,7 @@ if st.session_state.role == "admin":
         except Exception as e:
             st.error(str(e))
 
-# =====================================================
-# USER PAGE
-# =====================================================
+
 if st.session_state.role == "user":
     st.title("Intelligent Credit‑Risk RAG Assistant")
 
@@ -110,14 +96,11 @@ if st.session_state.role == "user":
         placeholder='{ "customer_id": "BORR001",  "employment_type": "Salaried",   "loan_type": "Personal Loan", ... }'
     )
 
-    # -----------------------------
-    # Chat History
-    # -----------------------------
+  
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-            #  Always show citations for assistant messages
             if msg["role"] == "assistant":
                 st.markdown("### Source Information")
                 st.markdown(f"**Document Name:** {msg.get('document_name', 'NA')}")
@@ -133,9 +116,7 @@ if st.session_state.role == "user":
                         st.markdown(chunk)
                         st.markdown("---")
 
-    # -----------------------------
-    # User Input
-    # -----------------------------
+    
     if prompt := st.chat_input("Ask your question..."):
 
         # Parse user metadata safely
@@ -147,7 +128,7 @@ if st.session_state.role == "user":
 
         query = prompt + " " + str(user_data)
 
-        # Save user message
+    
         st.session_state.messages.append({
             "role": "user",
             "content": prompt
@@ -156,9 +137,7 @@ if st.session_state.role == "user":
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # -----------------------------
-        # Query Backend
-        # -----------------------------
+       
         try:
             response = requests.post(API_QUERY, json={"query": query})
             response.raise_for_status()
@@ -173,31 +152,36 @@ if st.session_state.role == "user":
         section = data.get("section", "NA")
         chunks = data.get("chunks", [])
 
-        # -----------------------------
-        # Assistant Message
-        # -----------------------------
+        
         with st.chat_message("assistant"):
-            st.markdown(answer)
-
-            st.markdown("### Source Information")
-            st.markdown(f"**Document Name:** {document_name}")
-            st.markdown(f"**Page No.:** {page_no}")
-            st.markdown(f"**Section:** {section}")
-
-            if not chunks:
-                st.markdown("No citation text available.")
+            if "No relevant data found" in answer:
+                st.markdown(answer)
             else:
-                for i, chunk in enumerate(chunks):
-                    st.markdown(f"**Snippet {i+1}:**")
-                    st.markdown(chunk)
-                    st.markdown("---")
+                st.markdown(answer)
+
+                st.markdown("### Source Information")
+                st.markdown(f"**Document Name:** {document_name}")
+                st.markdown(f"**Page No.:** {page_no}")
+                st.markdown(f"**Section:** {section}")
+
+            # if not chunks:
+            #     st.markdown("No citation text available.")
+            # else:
+            for i, chunk in enumerate(chunks):
+                st.markdown(f"**Snippet {i+1}:**")
+                st.markdown(chunk)
+                st.markdown("---")
 
         # Save assistant response
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": answer,
-            "document_name": document_name,
-            "page_no": page_no,
-            "section": section,
-            "chunks": chunks
-        })
+        if "No relevant data found" not in answer:
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": answer,
+                "document_name": document_name,
+                "page_no": page_no,
+                "section": section,
+                # "chunks": chunks
+            })
+
+
+

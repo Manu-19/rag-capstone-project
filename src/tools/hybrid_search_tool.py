@@ -3,7 +3,7 @@ from src.tools.fts_search_tool import fts_search
 from langchain_core.tools import tool
 
 
-def _hybrid_search(query: str, k: int = 5) -> list[dict]:
+def _hybrid_search(query: str, k: int = 3) -> list[dict]:
    """
     Use this tool when the query needs both keyword and semantic understanding.
     Best for long, complex, or ambiguous loan related questions.
@@ -33,3 +33,4 @@ def _hybrid_search(query: str, k: int = 5) -> list[dict]:
 
    ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
    return [chunk_map[key] for key, _ in ranked[:k]]
+

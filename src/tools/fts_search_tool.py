@@ -5,10 +5,10 @@ from psycopg.rows import dict_row
 from langchain_core.tools import tool
 
 load_dotenv()
-_raw_conn = os.getenv("SQLALCHEMY_DATABASE_URL", "").replace("postgresql+psycopg", "postgresql")
+_raw_conn = os.getenv("PG_CONNECTION_STRING", "").replace("postgresql+psycopg", "postgresql")
 
 
-def fts_search(query: str, k: int = 5, collection_name: str = "hr_support_desk") -> list[dict]:
+def fts_search(query: str, k: int = 3, collection_name: str = "hr_support_desk") -> list[dict]:
    """
     Use this tool to retrieve information using exact keyword matching.
     Best suited for acronyms, fixed terms, and titles.
